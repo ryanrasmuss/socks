@@ -1,5 +1,4 @@
-#include <stdio.h>
-#include "socks.c"
+#include "socks.h"
 #include <stdio.h>
 
 int main(int argc, char ** argv)
@@ -44,7 +43,7 @@ int main(int argc, char ** argv)
 
     printf("listening_sock success\n");
 
-    Peer_Sock new_conn;
+    Sock new_conn;
 
     if(0 != accept_socks(&local, &new_conn))
     {
@@ -53,6 +52,20 @@ int main(int argc, char ** argv)
     }
 
     printf("accept_sock success\n");
+
+    size_t buffer_size = 32;
+    char buffer[buffer_size];
+    int returned;
+
+    if(0 > (returned = sock_recv(&new_conn, buffer, buffer_size)))
+    {
+        printf("sock_recv FAILED\n");
+        wash_sock(&local);
+        return 1;
+    }
+
+    printf("sock_recv sucess\n");
+    printf("Got %zd bytes: %s\n", returned, buffer);
 
     wash_sock(&local);
 

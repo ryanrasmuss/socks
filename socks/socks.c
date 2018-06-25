@@ -1,6 +1,4 @@
-#include <sys/types.h>
-#include <sys/socket.h>
-#include <netdb.h>
+#include "socks.h"
 
 // close
 #include <unistd.h>
@@ -8,41 +6,9 @@
 // debugging 
 #include <string.h>
 #include <errno.h>
+#include <stdio.h>
+// remove above later
 
-#define UDP 0
-#define TCP 1
-
-#define IPV4 0
-#define IPV6 1
-
-#define QUEUE_SIZE 5
-
-// XXX: pack this properly later
-struct sock 
-{
-    struct addrinfo settings;
-    struct addrinfo * serverinfo;
-    char * ip_address;
-    char * port_number;
-    unsigned protocol;
-    unsigned ip_version;
-    unsigned flags;
-    int socketfd;
-};
-
-struct peer_sock
-{
-    struct sockaddr * addr;
-    socklen_t addrlen;
-    int socketfd;
-};
-
-typedef struct sock Sock;
-typedef struct peer_sock Peer_Sock;
-
-// XXX
-// combine set_addrinfo and set_servinfo
-//
 int wash_sock(Sock * const sock)
 {
     freeaddrinfo(sock->serverinfo);
@@ -131,12 +97,18 @@ int listening_sock(Sock * const sock)
     return 0;
 }
 
-int accept_socks(Sock * const sock, Peer_Sock * new_sock)
+int accept_socks(Sock * const sock, Sock * const new_sock)
 {
-    new_sock->addrlen = sizeof(*new_sock->addr);
+    if(NULL == sock)
+        return -2;
 
-    if(-1 == (new_sock->socketfd = accept(sock->socketfd, new_sock->addr, 
-                    &new_sock->addrlen)))
+    if(NULL == new_sock)
+        return -3;
+
+    new_sock->settings.ai_addrlen = sizeof(*new_sock->settings.ai_addr);
+
+    if(-1 == (new_sock->socketfd = accept(sock->socketfd, new_sock->settings.ai_addr, 
+                    &new_sock->settings.ai_addrlen)))
     {
         printf("ERROR: accept returned %d\n", new_sock->socketfd);
         printf("ERROR: %s\n", strerror(errno));
@@ -161,4 +133,46 @@ int connect_socks(Sock * const sock)
     }
 
     return 0;
+}
+
+int sock_send(Sock * const sock, const char * const message, const size_t length)
+{
+    if(NULL == sock)
+        return -2;
+
+    if(NULL == message)
+        return -3;
+
+    ssize_t returned;
+
+    // XXX flag support later
+    if(-1 == (returned = send(sock->socketfd, message, length, 0)))
+    {
+        printf("ERROR: send returned %zd\n", returned);
+        printf("ERROR: %s\n", strerror(errno));
+        return -1;
+    }
+    
+    return returned;
+}
+
+int sock_recv(Sock * const sock, char * const buffer, const size_t size)
+{
+    if(NULL == sock)
+        return -2;
+    
+    if(NULL == buffer)
+        return -3;
+
+    ssize_t returned;
+
+    // XXX flag support later
+    if(-1 == (returned = recv(sock->socketfd, buffer, size, 0)))
+    {
+        printf("ERROR: recv returned %zd\n", returned);
+        printf("ERROR: %s\n", strerror(errno));
+        return -1;
+    }
+
+    return returned;
 }

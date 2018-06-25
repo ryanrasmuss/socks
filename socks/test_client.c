@@ -1,6 +1,6 @@
-#include <stdio.h>
-#include "socks.c"
+#include "socks.h"
 
+#include <stdio.h>
 #include <fcntl.h>
 
 int main(int argc, char ** argv)
@@ -36,6 +36,19 @@ int main(int argc, char ** argv)
     }
 
     printf("connect_sock success\n");
+
+    char hello[] = "HELLO :) ";
+    int returned;
+
+    if(0 > (returned = sock_send(&local, hello, sizeof(hello))))
+    {
+        printf("sock_send FAILED\n");
+        wash_sock(&local);
+        return 1;
+    }
+
+    printf("sock_send success\n");
+    printf("sent %lu bytes: %s\n", sizeof(hello), hello);
 
     wash_sock(&local);
 
