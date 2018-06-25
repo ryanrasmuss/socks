@@ -67,9 +67,21 @@ int main(int argc, char ** argv)
     printf("sock_recv sucess\n");
     printf("Got %zd bytes: %s\n", returned, buffer);
 
+    char hi[] = "Hi!";
+
+    if(0 > (returned = sock_send(&new_conn, hi, sizeof(hi))))
+    {
+        printf("sock_send FAILED\n");
+        wash_sock(&local);
+        return 1;
+    }
+
+    printf("sock_send success\n");
+    printf("sent %lu bytes: %s\n", sizeof(hi), hi);
+
     wash_sock(&local);
 
-    printf("free_all success\n");
+    printf("wash_sock success\n");
 
     printf("Looks like everything went well.\n");
 
