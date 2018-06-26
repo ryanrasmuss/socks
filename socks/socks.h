@@ -1,3 +1,6 @@
+#ifndef socks_h__
+#define socks_h__
+
 #include <sys/types.h>
 #include <sys/socket.h>
 #include <netdb.h>
@@ -44,3 +47,5 @@ int connect_socks(Sock * const sock);
 int sock_send(Sock * const sock, const char * const message, const size_t length);
 
 int sock_recv(Sock * const sock, char * const buffer, const size_t size);
+
+#endif // socks_h__

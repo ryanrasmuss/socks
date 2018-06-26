@@ -1,31 +1,20 @@
-sources := test_client.c server.c
+sources = socks.c
 
-socks := socks.a
+objects = $(sources:.c=.o)
 
-socks_src = socks.c
-
-socks_objs = socks.o
-
-binaries = $(sources:.c=)
+shared_lib = libsocks.so
 
 CC = gcc
+CFLAGS = -shared -Wall
 
-AR = ar
+all: $(shared_lib)
 
-ARFLAGS = rcs
+$(shared_lib): $(objects)
+	$(CC) $(CFLAGS) -o $@ $<
 
-CFLAGS = -Wall
-
-all: $(socks) $(binaries)
-
-$(socks): $(socks_objs)
-	$(AR) $(ARFLAGS) $@ $(socks_objs)
-
-$(socks_objs): %.o : %.c
-	$(CC) $(CFLAGS) -c $< -o $@
-
-$(binaries): % : %.c
-	$(CC) $(CFLAGS) $(socks) $< -o $@
+$(objects): %.o : %.c
+	$(CC) -c $< -o $@
 
 clean:
-	rm -v $(binaries)
+	rm -v $(shared_lib)
+	rm -v $(objects)
