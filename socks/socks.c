@@ -23,7 +23,8 @@ int set_serverinfo(Sock * const sock, const char * const ip_address, const char 
 
     sock->settings.ai_family   = AF_UNSPEC;
     sock->settings.ai_socktype = SOCK_STREAM;
-    sock->settings.ai_flags    = AI_PASSIVE;
+    //sock->settings.ai_flags    = AI_PASSIVE;
+    sock->settings.ai_flags     = AI_CANONNAME;
 
     int status;
 
