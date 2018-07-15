@@ -1,4 +1,4 @@
-sources = test_client.c server.c
+sources = tcp_server.c tcp_client.c udp_recv.c udp_send.c server.c client.c
 
 srcs_dir = test-src
 

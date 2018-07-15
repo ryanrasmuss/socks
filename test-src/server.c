@@ -1,89 +1,96 @@
 #include "socks.h"
 #include <stdio.h>
 
+#define BUFFER_SIZE 8
+
+int handle_connection(Sock * const conn);
+
 int main(int argc, char ** argv)
 {
-    if(argc != 3)
+
+    if(5 != argc)
     {
-        printf("Usage: %s <IP ADDRESS> <PORT NUMBER>\n", argv[0]);
+        printf("Usage: %s {IP} {Port} {ipv4|ipv6} {tcp|udp}\n", argv[0]);
         return 1;
     }
 
+    char * ip       = argv[1];
+    char * port     = argv[2];
+    char * ipver    = argv[3];
+    char * protocol = argv[4];
     Sock local;
 
-    if(0 != set_serverinfo(&local, argv[1], argv[2]))
+    if(0 != fill_sock(&local, ip, port, ipver, protocol))
     {
-        printf("Failed\n");
+        printf("fill_sock failed\n");
         return 1;
     }
 
-    printf("set_serverinfo success\n");
+    printf("fill_sock success\n");
 
-    if(-1 == make_socket(&local))
+    if(0 != bind_sock(&local, _BIND))
     {
-        printf("Making socket failed\n");
+        printf("bind_sock _BIND mode failed\n");
         return 1;
     }
 
-    printf("make_socket success\n");
-
-    if(0 != bind_socket(&local))
+    if(TCP == local.socktype)
     {
-        printf("Binding socket failed\n");
-        return 1;
+        // tcp routine
+        Sock newconn;
+
+        if(0 != listening_sock(&local))
+        {
+            printf("listening_sock failed\n");
+            return 1;
+        }
+
+        if(0 != accept_socks(&local, &newconn))
+        {
+            printf("accept_socks failed\n");
+            return 1;
+        }
+
+        handle_connection(&newconn);
     }
-
-    printf("bind_socket success\n");
-
-    if(0 != listening_sock(&local))
+    else
     {
-        printf("Listening sock failed\n");
-        return 1;
+        // udp 
+        handle_connection(&local);
     }
-
-    printf("listening_sock success\n");
-
-    Sock new_conn;
-
-    if(0 != accept_socks(&local, &new_conn))
-    {
-        printf("accepting new sock failed\n");
-        return 1;
-    }
-
-    printf("accept_sock success\n");
-
-    size_t buffer_size = 32;
-    char buffer[buffer_size];
-    int returned;
-
-    if(0 > (returned = sock_recv(&new_conn, buffer, buffer_size)))
-    {
-        printf("sock_recv FAILED\n");
-        wash_sock(&local);
-        return 1;
-    }
-
-    printf("sock_recv sucess\n");
-    printf("Got %zd bytes: %s\n", returned, buffer);
-
-    char hi[] = "Hi!";
-
-    if(0 > (returned = sock_send(&new_conn, hi, sizeof(hi))))
-    {
-        printf("sock_send FAILED\n");
-        wash_sock(&local);
-        return 1;
-    }
-
-    printf("sock_send success\n");
-    printf("sent %lu bytes: %s\n", sizeof(hi), hi);
 
     wash_sock(&local);
 
-    printf("wash_sock success\n");
-
-    printf("Looks like everything went well.\n");
-
+    printf("Looks like that went well\n");
     return 0;
 }
+
+
+int handle_connection(Sock * const conn)
+{
+    char buffer[BUFFER_SIZE];
+    char QUIT[] = "QUIT";
+    ssize_t bytes;
+
+    while(1)
+    {
+        if(0 >= (bytes = sock_recv(conn, buffer, BUFFER_SIZE)))
+        {
+            if(0 == bytes)
+                printf("connection closed\n");
+            else
+                printf("connection failed\n");
+            return 1;
+        }
+
+        printf("Received %zd bytes: %s\n", bytes, buffer);
+
+        if(0 == strcmp(buffer, QUIT))
+            break;
+    }
+
+    printf("Done with connection\n");
+    return 0;
+}
+
+

@@ -1,83 +1,105 @@
 #include "socks.h"
 
-// close
-#include <unistd.h>
-
-// debugging 
-#include <string.h>
-#include <errno.h>
-#include <stdio.h>
-// remove above later
-
 int wash_sock(Sock * const sock)
 {
-    freeaddrinfo(sock->serverinfo);
+    if(NULL == sock) return -1;
+
     close(sock->socketfd);
 
     return 0;
 }
 
-int set_serverinfo(Sock * const sock, const char * const ip_address, const char * const port)
+int fill_sock(Sock * const sock, const char * ip_address, const char * port, 
+        const char * const ip_version, const char * const protocol)
 {
+    if(NULL == sock)
+        return -1;
+    if(NULL == ip_address)
+        return -2;
+    if(NULL == port)
+        return -3;
+    if(NULL == ip_version)
+        return -4;
+    if(NULL == protocol)
+        return -5;
+
     memset(&(sock->settings), 0, sizeof(sock->settings));
 
-    sock->settings.ai_family   = AF_UNSPEC;
-    sock->settings.ai_socktype = SOCK_STREAM;
-    //sock->settings.ai_flags    = AI_PASSIVE;
-    sock->settings.ai_flags     = AI_CANONNAME;
+    if(0 == strcmp(ip_version, "IPV4") || 0 == strcmp(ip_version, "ipv4"))
+        sock->settings.ai_family = AF_INET;
+    else if(0 == strcmp(ip_version, "IPV6") || 0 == strcmp(ip_version, "ipv6"))
+        sock->settings.ai_family = AF_INET6;
+    else
+        sock->settings.ai_family = AF_UNSPEC;
+
+    if(0 == strcmp(protocol, "TCP") || 0 == strcmp(protocol, "tcp"))
+    {
+        sock->settings.ai_socktype = SOCK_STREAM;
+        sock->socktype = TCP;
+    }
+    else if(0 == strcmp(protocol, "UDP") || 0 == strcmp(protocol, "udp"))
+    {
+        sock->settings.ai_socktype = SOCK_DGRAM;
+        sock->socktype = UDP;
+    }
+    else
+    {
+        return 1;
+    }
+
+
+    sock->settings.ai_flags = AI_CANONNAME;
 
     int status;
 
-    if(0 != (status = getaddrinfo(ip_address, port, &(sock->settings), &sock->serverinfo)))
+    if(0 != (status = getaddrinfo(ip_address, port, &(sock->settings),
+                    &sock->serverinfo)))
     {
-        printf("ERROR: getaddrinfo returned %d\n", status);
-        printf("ERROR: %s\n", gai_strerror(status));
-        return -1;
+        return 1;
     }
 
     return 0;
 }
 
-
-// return a socket fd
-// socket is a end point(ep) for communication and 
-// returns a file descriptor that refers to that endp point
-int make_socket(Sock * const sock)
+// if 1, then bind, else connect
+int bind_sock(Sock * const sock, const unsigned mode)
 {
-    int returned;
+    if(NULL == sock) return -1;
 
-    if(-1 == (returned = socket(sock->serverinfo->ai_family, sock->serverinfo->ai_socktype,
-                    sock->serverinfo->ai_protocol)))
+    int returned;
+    struct addrinfo * traveler;
+
+    for(traveler = sock->serverinfo; NULL != traveler; traveler = traveler->ai_next)
     {
-        printf("ERROR: socket returned %d\n", returned);
-        printf("ERROR: %s\n", strerror(errno));
-        wash_sock(sock);
+        if(-1 == (returned = socket(traveler->ai_family, traveler->ai_socktype,
+                        traveler->ai_protocol)))
+            continue; // fail to get socket, go on to the next
+
+        if(_BIND == mode)
+        {
+            if(0 == bind(returned, traveler->ai_addr, traveler->ai_addrlen))
+                break; // success; we're done here
+        }
+        else
+        {
+            if(0 == connect(returned, traveler->ai_addr, traveler->ai_addrlen))
+                break; // success; we're done
+        }
+
+        close(returned); // couldn't bind, close the socket, try the next 
+    }
+
+    if(NULL == traveler)
+    {
+        // problem binding socket
+        freeaddrinfo(sock->serverinfo);
         return -1;
     }
 
-    sock->socketfd = returned;
-
-    return returned;
-}
-
-// when a socket is created with socket, it exists in a name space (address family) but
-// has no address assigned to it
-// bind() assigns the address specified by addr to the socket referred to by the file desc sockfd
-// addrlen specifies the size, in bytes, of the address structure pointed to by addr
-// traditionally, this process is called "assigning a name to a socket"
-int bind_socket(Sock * const sock)
-{
-    int returned;
-
-    if(0 != (returned = bind(sock->socketfd, sock->serverinfo->ai_addr,
-                    sock->serverinfo->ai_addrlen)))
-    {
-        printf("ERROR: bind returned %d\n", returned);
-        printf("ERROR: %s\n", strerror(errno));
-        wash_sock(sock);
-        return -1;
-    }
-
+    freeaddrinfo(sock->serverinfo);
+    
+    sock->socketfd = returned; // record the socket in sock
+    
     return 0;
 }
 
@@ -85,12 +107,12 @@ int bind_socket(Sock * const sock)
 // return 0 for success, -1 for error (errno set)
 int listening_sock(Sock * const sock)
 {
+    if(NULL == sock) return -1;
+
     int returned;
 
     if(-1 == (returned = listen(sock->socketfd, QUEUE_SIZE)))
     {
-        printf("ERROR: listen returned %d\n", returned);
-        printf("ERROR: %s\n", strerror(errno));
         wash_sock(sock);
         return -1;
     }
@@ -101,42 +123,24 @@ int listening_sock(Sock * const sock)
 int accept_socks(Sock * const sock, Sock * const new_sock)
 {
     if(NULL == sock)
-        return -2;
+        return -1;
 
     if(NULL == new_sock)
-        return -3;
+        return -2;
 
     new_sock->settings.ai_addrlen = sizeof(*new_sock->settings.ai_addr);
 
-    if(-1 == (new_sock->socketfd = accept(sock->socketfd, new_sock->settings.ai_addr, 
-                    &new_sock->settings.ai_addrlen)))
+    if(-1 == (new_sock->socketfd = accept(sock->socketfd, 
+                    new_sock->settings.ai_addr, &new_sock->settings.ai_addrlen)))
     {
-        printf("ERROR: accept returned %d\n", new_sock->socketfd);
-        printf("ERROR: %s\n", strerror(errno));
         wash_sock(sock);
-        return -1;
+        return -3;
     }
 
     return 0;
 }
 
-int connect_socks(Sock * const sock)
-{
-    int returned;
-
-    if(-1 == (returned = connect(sock->socketfd, sock->serverinfo->ai_addr,
-                    sock->serverinfo->ai_addrlen)))
-    {
-        printf("ERROR: connect returned %d\n", returned);
-        printf("ERROR: %s\n", strerror(errno));
-        wash_sock(sock);
-        return -1;
-    }
-
-    return 0;
-}
-
-int sock_send(Sock * const sock, const char * const message, const size_t length)
+ssize_t sock_send(Sock * const sock, const char * const message, const size_t length)
 {
     if(NULL == sock)
         return -2;
@@ -149,15 +153,13 @@ int sock_send(Sock * const sock, const char * const message, const size_t length
     // XXX flag support later
     if(-1 == (returned = send(sock->socketfd, message, length, 0)))
     {
-        printf("ERROR: send returned %zd\n", returned);
-        printf("ERROR: %s\n", strerror(errno));
         return -1;
     }
     
     return returned;
 }
 
-int sock_recv(Sock * const sock, char * const buffer, const size_t size)
+ssize_t sock_recv(Sock * const sock, char * const buffer, const size_t size)
 {
     if(NULL == sock)
         return -2;
@@ -170,8 +172,6 @@ int sock_recv(Sock * const sock, char * const buffer, const size_t size)
     // XXX flag support later
     if(-1 == (returned = recv(sock->socketfd, buffer, size, 0)))
     {
-        printf("ERROR: recv returned %zd\n", returned);
-        printf("ERROR: %s\n", strerror(errno));
         return -1;
     }
 

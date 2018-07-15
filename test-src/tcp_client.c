@@ -4,39 +4,33 @@
 
 int main(int argc, char ** argv)
 {
-    if(3 != argc)
+    if(4 != argc)
     {
-        printf("Usage: ./ <IP ADDRESS> <PORT NUMBER>\n");
+        printf("Usage: %s {IP ADDRESS} {PORT NUMBER} {IPV4|IPV6}\n", argv[0]);
         return 1;
     }
 
     Sock local;
 
-    if(0 != set_serverinfo(&local, argv[1], argv[2]))
+    int ret;
+
+    if(0 != (ret = fill_sock(&local, argv[1], argv[2], argv[3], "tcp")))
     {
-        printf("set_serverinfo FAILED\n");
+        printf("fill_sock failed w/ %d\n", ret);
+        return 1;
+    }
+    
+    printf("fill_sock success\n");
+
+    if(0 != bind_sock(&local, 0))
+    {
+        fprintf(stderr, "bind_sock connect mode failed\n");
         return 1;
     }
 
-    printf("set_serverinfo success\n");
+    printf("bind_sock connect mode success\n");
 
-    if(-1 == make_socket(&local))
-    {
-        printf("make_socket failed\n");
-        return 1;
-    }
-
-    printf("make_socket success\n");
-
-    if(0 != connect_socks(&local))
-    {
-        printf("connect_socks FAILED\n");
-        return 1;
-    }
-
-    printf("connect_sock success\n");
-
-    char hello[] = "HELLO :) ";
+    char hello[] = "HELLO :)";
     int returned;
 
     if(0 > (returned = sock_send(&local, hello, sizeof(hello))))
