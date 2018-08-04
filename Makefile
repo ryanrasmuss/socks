@@ -5,10 +5,8 @@ srcs_dir = test-src
 binaries = $(sources:.c=)
 
 LIBR = socks
-#CURRENT_DIR = $(notdir $(shell pwd))
 CURRENT_DIR = $(shell pwd)
 SOCKS_DIR = $(CURRENT_DIR)/socks
-#SOCKS_LIBR = $(SOCKS_DIR)/$(LIBR)
 
 all: $(SOCKS_LIBR) $(binaries)
 

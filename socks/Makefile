@@ -2,7 +2,6 @@ sources = socks.c
 
 objects = $(sources:.c=.o)
 
-# shared_lib = libsocks.so.1
 shared_lib = libsocks.so
 
 CC = gcc
@@ -11,7 +10,6 @@ CFLAGS = -Wall -fPIC
 all: $(shared_lib)
 
 $(shared_lib): $(objects)
-#	$(CC) -shared $(CFLAGS) -Wl,-soname,libsocks.so.1 -o $(shared_lib) $< -lc
 	$(CC) -shared -o $(shared_lib) $<
 
 $(objects): %.o : %.c
