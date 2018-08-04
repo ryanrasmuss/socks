@@ -4,22 +4,23 @@ srcs_dir = test-src
 
 binaries = $(sources:.c=)
 
-LIBR = socks
+LIBR = libsocks.so
+LIBR_NAME = socks
 CURRENT_DIR = $(shell pwd)
 SOCKS_DIR = $(CURRENT_DIR)/socks
 
-all: $(SOCKS_LIBR) $(binaries)
+all: $(LIBR) $(binaries)
 
 CC = gcc
 CFLAGS = -Wall
 
 INCLUDES = -I$(SOCKS_DIR) -L$(SOCKS_DIR)
 
-$(SOCKS_LIBR):
+$(LIBR):
 	$(MAKE) -C $(SOCKS_DIR)
 
 $(binaries): %: $(srcs_dir)/%.c
-	$(CC) $(CFLAGS) $(INCLUDES) -o $@ $< -l$(LIBR)
+	$(CC) $(CFLAGS) $(INCLUDES) -o $@ $< -l$(LIBR_NAME)
 
 clean:
 	$(MAKE) -C $(SOCKS_DIR) clean

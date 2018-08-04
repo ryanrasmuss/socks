@@ -54,7 +54,7 @@ int main(int argc, char ** argv)
     }
 
     printf("sock_recv success\n");
-    printf("Got %zd bytes: %s\n", returned, buffer);
+    printf("Got %d bytes: %s\n", returned, buffer);
 
     wash_sock(&local);
 
